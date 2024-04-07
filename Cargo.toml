@@ -9,4 +9,5 @@ edition = "2021"
 console = "0.15.8"
 lazy_static = "1.4.0"
 mlua = { version = "0.9.7", features = ["lua54", "send"] }
+rand = "0.8.5"
 regex = "1.10.4"

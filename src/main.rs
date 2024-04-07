@@ -1,6 +1,8 @@
 use console::Term;
+use core::panic;
 use lazy_static::lazy_static;
 use mlua::prelude::*;
+use rand::seq::SliceRandom;
 use regex::Regex;
 use std::{collections::HashMap, io, sync::Mutex};
 
@@ -46,9 +48,14 @@ fn main() -> LuaResult<()> {
     let lua = LUA.lock().unwrap();
     drop(lua);
 
-    process_line(String::from(r"~bar~=balls 123"));
-    process_line(String::from(r"~name=r/\w+/"));
-    process_line(String::from(r"~foo=bar"));
+    //    process_line(String::from(r"~bar~=balls 123"));
+    //    process_line(String::from(r"~name=r/\w+/"));
+    //    process_line(String::from(r"~foo=bar"));
+    process_line(String::from(r">This is just a plain test"));
+    process_line(String::from(
+        r">This is just a [rand;random;123;sdhjkf;test thjkdjk] test.",
+    ));
+    process_line(String::from(r">Testing [[ ]] test"));
 
     Ok(())
 }
@@ -58,19 +65,74 @@ fn process_line(line: String) {
         panic!("Bad empty input");
     }
     match line.chars().next().expect("Input is empty") {
-        '>' => {}
+        '>' => text_line(line),
         '[' => {}
         '{' => {}
-        '~' => {
-            variable_change(line);
-        }
+        '~' => variable_change(line),
         _ => {
             panic!("Unexpected start of line: '{line}'");
         }
     }
 }
 
-fn text_line(line: String) {}
+fn rand_line(line: String) -> String {
+    let mut escaped_char = false;
+    let mut in_block_seq = false;
+    let mut output = String::new();
+    let mut temp_buf = String::new();
+
+    for (i, c) in line.chars().enumerate() {
+        if escaped_char {
+            output.push(c);
+            escaped_char = false;
+            continue;
+        }
+
+        if c == '[' {
+            escaped_char = line.chars().nth(i + 1) == Some('[');
+
+            if !escaped_char {
+                in_block_seq = true;
+            }
+
+            continue;
+        }
+
+        if c == ']' {
+            escaped_char = line.chars().nth(i + 1) == Some(']');
+
+            if !escaped_char && in_block_seq {
+                let options: Vec<&str> = temp_buf.split(';').collect();
+                if options.is_empty() {
+                    panic!("Invalid random selector, no elements");
+                }
+                let mut rng = rand::thread_rng();
+
+                output += options.choose(&mut rng).unwrap();
+
+                in_block_seq = false;
+            } else if !escaped_char && !in_block_seq {
+                panic!("Unclosed bracket in line!");
+            }
+
+            continue;
+        }
+
+        if in_block_seq {
+            temp_buf.push(c);
+        } else {
+            output.push(c);
+        }
+    }
+
+    return output;
+}
+
+fn text_line(line: String) {
+    let output = rand_line(line);
+
+    println!("{}", output);
+}
 
 fn option_line(line: String) {}
 
