@@ -44,7 +44,6 @@ fn main() -> LuaResult<()> {
     setup_lua_funcs()?;
 
     let lua = LUA.lock().unwrap();
-
     drop(lua);
 
     process_line(String::from(r"~bar~=balls 123"));
