@@ -1,27 +1,57 @@
 use console::Term;
 use lazy_static::lazy_static;
+use mlua::prelude::*;
 use regex::Regex;
 use std::{collections::HashMap, io, sync::Mutex};
 
 lazy_static! {
     static ref VARIABLES: Mutex<HashMap<String, String>> = Mutex::new(HashMap::new());
+    static ref LUA: Mutex<Lua> = Mutex::new(Lua::new());
 }
 
 fn get_var(var_name: &str) -> Option<String> {
     VARIABLES.lock().unwrap().get(var_name).cloned()
 }
 
-fn set_var(var_name: String, value: String) -> Option<String> {
-    VARIABLES.lock().unwrap().insert(var_name, value)
+fn set_var<S: Into<String>, T: Into<String>>(var_name: S, value: T) -> Option<String> {
+    VARIABLES
+        .lock()
+        .unwrap()
+        .insert(var_name.into(), value.into())
 }
 
-fn main() {
-    // println!("Hello, world!");
+fn setup_lua_funcs() -> LuaResult<()> {
+    let lua = LUA.lock().unwrap();
+
+    lua.globals().set(
+        "g_var",
+        lua.create_function(|_, var: String| -> LuaResult<String> {
+            Ok(get_var(&var).unwrap_or(String::from("nil")))
+        })?,
+    )?;
+
+    lua.globals().set(
+        "s_var",
+        lua.create_function(|_, (var, val): (String, String)| -> LuaResult<String> {
+            Ok(set_var(var, val).unwrap_or(String::from("nil")))
+        })?,
+    )?;
+
+    Ok(())
+}
+
+fn main() -> LuaResult<()> {
+    setup_lua_funcs()?;
+
+    let lua = LUA.lock().unwrap();
+
+    drop(lua);
 
     process_line(String::from(r"~bar~=balls 123"));
     process_line(String::from(r"~name=r/\w+/"));
     process_line(String::from(r"~foo=bar"));
-    dbg!(VARIABLES.lock().unwrap());
+
+    Ok(())
 }
 
 fn process_line(line: String) {
@@ -71,7 +101,7 @@ fn variable_change(line: String) {
             let input = input.trim();
 
             if pat.is_match(input) {
-                set_var(lhs.to_string(), input.to_string());
+                set_var(lhs, input);
                 break;
             }
         }
@@ -79,10 +109,10 @@ fn variable_change(line: String) {
         todo!("Implement setting to output of functions")
     } else if var_val_set.is_match(line) {
         let lhs = lhs.strip_suffix('~').unwrap();
-        set_var(lhs.to_string(), rhs.to_string());
+        set_var(lhs, rhs);
     } else if var_var_set.is_match(line) {
         if let Some(value) = get_var(rhs) {
-            set_var(lhs.to_string(), value);
+            set_var(lhs, value);
         } else {
             panic!("Variable {rhs} is not yet set!");
         }
