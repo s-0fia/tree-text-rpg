@@ -1,5 +1,4 @@
-# Text formatting
-## Features
+# Features
 |Feature|Format|Allowed Chars|Escaping|
 |---|---|---|---|
 |[Text line](#text-lines)|^`> Some text`$|All|N/a|
@@ -7,18 +6,27 @@
 |[Random](#random-selection)|^`>` ... `[op1;option 2;op3]`|All but `;`|`[[Not an option]]`|
 |[Styling](#styling)|^`>` ... `STYLE<some text>`|All|`STYLE<<`|
 |[Options](#options)|^`[1;2;3;yes]`$|All except `[`, `;`, `]`|N/a|
-|[Conditionals](#conditional-functions)|^`{foo(var_name);bar()}`$|function names|N/a|
+|[Conditionals](#conditional-functions)|^`{foo()}`$|function names|N/a|
 |[Input](#variables)|^`~var_name=r/.{1,3}/`$|RegEx or function/var names|N/a|
 
-*Note: `^` is start of line and `$` is end of line*
+*Note: `^` is start of line and `$` is end of l
 
-## Text lines
+# Text lines
+Text lines print to the screen, in them you can insert [variables](#variables), [styling](#styling), and [random selection](#random-selection).
+An example of this is:
+```
+> This is just a plain text line
+> Or you can use an input, {name}!
+> Maybe you want to BWHITE<BLUE<BOLD<style>>> something.
+> Maybe you want a [cool ;super sexy ;]random text.
+> You can still use {{ and }} like this, or
+> for some reason write BLUE<< like this.
+> [[Sofia]] These can be used too!
+```
 
-
-## Variables
+# Variables
 To set variables you can use the format of:
 * `~foo=bar`, This sets another variable to a new one
-* `~foo=baz(bar)`, This applies the function to a variable and sets a var to its result
 * `~foo=baz()`, This just runs this function and sets a var to its result
 * `~foo~=some value`, This sets the variable to this value
 * `~input_var=r/`pattern`/`, This gets input from the user that matches the regex
@@ -42,7 +50,7 @@ You may also do a small amount of post process on variables when printing:
 |`{F;var_name}`|`{F;name}`→`Sofia`|Converts first character to uppercase|
 |`{f;var_name}`|`{f;name}`→`sOFIA`|Converts first character to lowercase|
 
-## Styling
+# Styling
 The style options are as follows:
 * `BOLD`
 * `DIM`
@@ -71,11 +79,58 @@ These may be composed into something like:
 > Hello BWHITE<RED<BOLD<traveller>>>
 ```
 
-## Options
-Options 
+# Options
+Options are for selecting the next node to go to.
+The position of input selected will select the next node to traverse to.
 
-## Conditional functions
+Example:
+```
+> Where do you wish to go traveller?
+> Left towards the village, ahead towards the forest, right towards the beach?
+[left;ahead;right]
+```
+```
+[left;ahead;right]→[1;2;3]
+        O
+       /|\
+      / | \
+left /  |  \ right 
+    1   2   3
+      ahead
+```
 
-## Random selection
+# Conditional functions
+Conditionals are for choosing a node/path based on conditional logic on game/player state etc.
+The conditionals' result should be a positive integer to determine the next node to traverse to (0 indexed).
+The conditional functions are written in lua.
 
-# Tree/file format
+Example:
+```
+{health_check()}
+```
+lua:
+```lua
+function health_check()
+  local health = tonumber(get_var("health"))
+  if health < 50 then
+    return 0
+  else
+    return 1
+  end
+end
+```
+```
+          O
+         / \
+health  /   \  health
+ <50   0     1   ≥50
+```
+
+# Random selection
+This is for random text insertion for text lines, this is for simple equal distribution randomness.
+For more complex distributions use a lua function to set a variable and use the variable in the text.
+
+Example:
+```
+> You can use this feature to [make random text;cause chaos;do random things].
+```
