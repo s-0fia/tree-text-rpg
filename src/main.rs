@@ -1,10 +1,9 @@
 use console::Term;
-use core::panic;
 use lazy_static::lazy_static;
 use mlua::prelude::*;
 use rand::seq::SliceRandom;
 use regex::Regex;
-use std::{collections::HashMap, io, sync::Mutex};
+use std::{collections::HashMap, fmt::format, io, sync::Mutex};
 
 lazy_static! {
     static ref VARIABLES: Mutex<HashMap<String, String>> = Mutex::new(HashMap::new());
@@ -75,7 +74,11 @@ fn process_line(line: String) {
     }
 }
 
-fn rand_line(line: String) -> String {
+fn simple_open_close_line(
+    line: String,
+    (start, end): (char, char),
+    success: fn(String) -> String,
+) -> String {
     let mut escaped_char = false;
     let mut in_block_seq = false;
     let mut output = String::new();
@@ -88,8 +91,8 @@ fn rand_line(line: String) -> String {
             continue;
         }
 
-        if c == '[' {
-            escaped_char = line.chars().nth(i + 1) == Some('[');
+        if c == start {
+            escaped_char = line.chars().nth(i + 1) == Some(start);
 
             if !escaped_char {
                 in_block_seq = true;
@@ -98,17 +101,12 @@ fn rand_line(line: String) -> String {
             continue;
         }
 
-        if c == ']' {
-            escaped_char = line.chars().nth(i + 1) == Some(']');
+        if c == end {
+            escaped_char = line.chars().nth(i + 1) == Some(end);
 
             if !escaped_char && in_block_seq {
-                let options: Vec<&str> = temp_buf.split(';').collect();
-                if options.is_empty() {
-                    panic!("Invalid random selector, no elements");
-                }
-                let mut rng = rand::thread_rng();
-
-                output += options.choose(&mut rng).unwrap();
+                output += &success(temp_buf);
+                temp_buf = String::new();
 
                 in_block_seq = false;
             } else if !escaped_char && !in_block_seq {
@@ -129,7 +127,41 @@ fn rand_line(line: String) -> String {
 }
 
 fn text_line(line: String) {
-    let output = rand_line(line);
+    let rand_line_fn = |temp_buf: String| {
+        let options: Vec<&str> = temp_buf.split(';').collect();
+        if options.is_empty() {
+            panic!("Invalid random selector, no elements");
+        }
+        let mut rng = rand::thread_rng();
+
+        options.choose(&mut rng).unwrap().to_string()
+    };
+
+    let var_line_fn = |temp_buf: String| {
+        let fields: Vec<&str> = temp_buf.split(';').collect();
+        match fields.len() {
+            1 => {
+                return get_var(fields[0]).unwrap();
+            }
+            2 => {
+                let value = get_var(fields[1]).unwrap();
+
+                let processed = match fields[0] {
+                    "U" => value.to_uppercase(),
+                    "l" => value.to_lowercase(),
+                    "F" => format!("{}{}", &value[0..1].to_uppercase(), &value[1..]),
+                    "f" => format!("{}{}", &value[0..1].to_lowercase(), &value[1..]),
+                    f => panic!("Unrecognised post process {f}"),
+                };
+
+                return processed;
+            }
+            _ => panic!("Too many/little fields given in variable"),
+        }
+    };
+
+    let output = simple_open_close_line(line, ('[', ']'), rand_line_fn);
+    let output = simple_open_close_line(output, ('{', '}'), var_line_fn);
 
     println!("{}", output);
 }
