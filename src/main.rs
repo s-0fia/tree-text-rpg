@@ -52,7 +52,7 @@ fn main() -> LuaResult<()> {
     //    process_line(String::from(r"~name=r/\w+/"));
     //    process_line(String::from(r"~foo=bar"));
     process_line(String::from(
-        r">This is BRED<ITALIC<just>> a ITALIC<plain> test",
+        r">This is BRED<ITALIC<just>> a ITALIC<<plain> test",
     ));
     process_line(String::from(
         r">This is just a [rand;random;123;sdhjkf;test thjkdjk] test.",
@@ -196,7 +196,13 @@ fn text_line(line: String) {
 
             let mut out_chars = output.chars();
 
-            let fg_or_bg_colours = if out_chars.nth(idx - 1) == Some('B') {
+            if output.chars().nth(idx + style.len() + 1) == Some('<') {
+                output.remove(idx + style.len() + 1);
+                next = output[idx + style.len() + 1..].find(&format!("{style}<"));
+                continue;
+            }
+
+            let fg_or_bg_colours = if output.chars().nth(idx - 1) == Some('B') {
                 new_out += &output[..idx - 1];
                 [
                     Style::on_black,
@@ -221,10 +227,6 @@ fn text_line(line: String) {
                     Style::white,
                 ]
             };
-
-            if out_chars.nth(idx + style.len() + 1) == Some('<') {
-                continue;
-            }
 
             let mut close_idx = output[idx..]
                 .find('>')
