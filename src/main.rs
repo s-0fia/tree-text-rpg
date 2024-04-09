@@ -1,9 +1,10 @@
-use console::Term;
+use console::Style;
+use core::panic;
 use lazy_static::lazy_static;
 use mlua::prelude::*;
 use rand::seq::SliceRandom;
 use regex::Regex;
-use std::{collections::HashMap, fmt::format, io, sync::Mutex};
+use std::{collections::HashMap, io, sync::Mutex};
 
 lazy_static! {
     static ref VARIABLES: Mutex<HashMap<String, String>> = Mutex::new(HashMap::new());
@@ -50,7 +51,9 @@ fn main() -> LuaResult<()> {
     //    process_line(String::from(r"~bar~=balls 123"));
     //    process_line(String::from(r"~name=r/\w+/"));
     //    process_line(String::from(r"~foo=bar"));
-    process_line(String::from(r">This is just a plain test"));
+    process_line(String::from(
+        r">This is BRED<ITALIC<just>> a ITALIC<plain> test",
+    ));
     process_line(String::from(
         r">This is just a [rand;random;123;sdhjkf;test thjkdjk] test.",
     ));
@@ -127,11 +130,14 @@ fn simple_open_close_line(
 }
 
 fn text_line(line: String) {
+    let line = line.strip_prefix('>').unwrap().to_string();
     let rand_line_fn = |temp_buf: String| {
         let options: Vec<&str> = temp_buf.split(';').collect();
+
         if options.is_empty() {
             panic!("Invalid random selector, no elements");
         }
+
         let mut rng = rand::thread_rng();
 
         options.choose(&mut rng).unwrap().to_string()
@@ -139,10 +145,9 @@ fn text_line(line: String) {
 
     let var_line_fn = |temp_buf: String| {
         let fields: Vec<&str> = temp_buf.split(';').collect();
+
         match fields.len() {
-            1 => {
-                return get_var(fields[0]).unwrap();
-            }
+            1 => get_var(fields[0]).unwrap(),
             2 => {
                 let value = get_var(fields[1]).unwrap();
 
@@ -154,15 +159,115 @@ fn text_line(line: String) {
                     f => panic!("Unrecognised post process {f}"),
                 };
 
-                return processed;
+                processed
             }
             _ => panic!("Too many/little fields given in variable"),
         }
     };
 
     let output = simple_open_close_line(line, ('[', ']'), rand_line_fn);
-    let output = simple_open_close_line(output, ('{', '}'), var_line_fn);
+    let mut output = simple_open_close_line(output, ('{', '}'), var_line_fn);
 
+    const STYLES: [&'static str; 17] = [
+        "BOLD",
+        "DIM",
+        "ITALIC",
+        "UNDERLINED",
+        "BLINK",
+        "BLINKFAST",
+        "REVERSE",
+        "HIDDEN",
+        "STRIKETHROUGH",
+        "BLACK",
+        "BLUE",
+        "GREEN",
+        "RED",
+        "CYAN",
+        "MAGENTA",
+        "YELLOW",
+        "WHITE",
+    ];
+
+    for style in STYLES.iter() {
+        let mut next = output.find(&format!("{style}<"));
+
+        while let Some(idx) = next {
+            let mut new_out = String::new();
+
+            let mut out_chars = output.chars();
+
+            let fg_or_bg_colours = if out_chars.nth(idx - 1) == Some('B') {
+                new_out += &output[..idx - 1];
+                [
+                    Style::on_black,
+                    Style::on_blue,
+                    Style::on_green,
+                    Style::on_red,
+                    Style::on_cyan,
+                    Style::on_magenta,
+                    Style::on_yellow,
+                    Style::on_white,
+                ]
+            } else {
+                new_out += &output[..idx];
+                [
+                    Style::black,
+                    Style::blue,
+                    Style::green,
+                    Style::red,
+                    Style::cyan,
+                    Style::magenta,
+                    Style::yellow,
+                    Style::white,
+                ]
+            };
+
+            if out_chars.nth(idx + style.len() + 1) == Some('<') {
+                continue;
+            }
+
+            let mut close_idx = output[idx..]
+                .find('>')
+                .expect("No valid closing tag for style.")
+                + idx;
+
+            while out_chars.nth(close_idx + 1) == Some('>') {
+                close_idx += 1;
+            }
+
+            let apply_style_func = |func: fn(Style) -> Style| {
+                func(Style::new())
+                    .apply_to(&output[idx + style.len() + 1..close_idx])
+                    .to_string()
+            };
+
+            new_out += &match *style {
+                "BOLD" => apply_style_func(Style::bold),
+                "DIM" => apply_style_func(Style::dim),
+                "ITALIC" => apply_style_func(Style::italic),
+                "UNDERLINED" => apply_style_func(Style::underlined),
+                "BLINK" => apply_style_func(Style::blink),
+                "BLINKFAST" => apply_style_func(Style::blink_fast),
+                "REVERSE" => apply_style_func(Style::reverse),
+                "HIDDEN" => apply_style_func(Style::hidden),
+                "STRIKETHROUGH" => apply_style_func(Style::strikethrough),
+                "BLACK" => apply_style_func(fg_or_bg_colours[0]),
+                "BLUE" => apply_style_func(fg_or_bg_colours[1]),
+                "GREEN" => apply_style_func(fg_or_bg_colours[2]),
+                "RED" => apply_style_func(fg_or_bg_colours[3]),
+                "CYAN" => apply_style_func(fg_or_bg_colours[4]),
+                "MAGENTA" => apply_style_func(fg_or_bg_colours[5]),
+                "YELLOW" => apply_style_func(fg_or_bg_colours[6]),
+                "WHITE" => apply_style_func(fg_or_bg_colours[7]),
+                _ => panic!(),
+            };
+
+            new_out += &output[close_idx + 1..];
+            output = new_out;
+
+            next = output.find(&format!("{style}<"));
+        }
+    }
     println!("{}", output);
 }
 
