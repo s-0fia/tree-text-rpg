@@ -1,7 +1,9 @@
 use core::panic;
 use lazy_static::lazy_static;
 use mlua::prelude::*;
-use std::{collections::HashMap, io, sync::Mutex};
+use std::{collections::HashMap, sync::Mutex};
+
+mod graph;
 mod text_line;
 mod variable_change;
 
