@@ -1,11 +1,19 @@
 use core::panic;
+use graph::Graph;
 use lazy_static::lazy_static;
 use mlua::prelude::*;
-use std::{collections::HashMap, sync::Mutex};
+use std::{
+    cell::UnsafeCell,
+    collections::HashMap,
+    sync::{Mutex, RwLock},
+};
 
 mod graph;
+mod optionals;
 mod text_line;
 mod variable_change;
+
+static mut GRAPH: Option<Graph> = None;
 
 lazy_static! {
     static ref VARIABLES: Mutex<HashMap<String, String>> = Mutex::new(HashMap::new());
@@ -51,6 +59,9 @@ fn main() -> LuaResult<()> {
     let lua = LUA.lock().unwrap();
     drop(lua);
 
+    unsafe {
+        GRAPH = Some(Graph::empty());
+    }
     //    process_line(String::from(r"~bar~=balls 123"));
     //    process_line(String::from(r"~name=r/\w+/"));
     //    process_line(String::from(r"~foo=bar"));
@@ -71,7 +82,7 @@ fn process_line(line: String) {
     }
     match line.chars().next().expect("Input is empty") {
         '>' => text_line::process(line),
-        '[' => {}
+        '[' => optionals::process(line),
         '{' => {}
         '~' => variable_change::process(line),
         _ => {
@@ -79,7 +90,5 @@ fn process_line(line: String) {
         }
     }
 }
-
-fn option_line(line: String) {}
 
 fn conditional_line(line: String) {}

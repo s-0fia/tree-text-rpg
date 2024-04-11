@@ -1,16 +1,25 @@
 #![allow(dead_code)]
 use std::{collections::HashMap, rc::Rc};
-
 pub struct Node {
     pub next_nodes: Vec<RcNode>,
     pub contents: String,
 }
 
+impl Node {
+    #[inline]
+    pub fn new() -> Self {
+        Node {
+            next_nodes: vec![],
+            contents: String::new(),
+        }
+    }
+}
+
 pub type RcNode = Rc<Node>;
 
 pub struct Graph {
-    pub head: RcNode,
-    pub curr: RcNode,
+    head: RcNode,
+    curr: RcNode,
 }
 
 pub type IndexedNodeList = Vec<(String, usize, Vec<usize>)>;
@@ -51,6 +60,7 @@ impl Graph {
         nodes.get(&0).cloned().map(Self::new)
     }
 
+    #[inline]
     pub fn new<T>(head: T) -> Self
     where
         T: Into<RcNode>,
@@ -63,12 +73,29 @@ impl Graph {
         }
     }
 
+    #[inline]
+    pub fn empty() -> Self {
+        Self::new(Node::new())
+    }
+
+    #[inline]
     pub fn go(&self, direction: usize) -> Option<RcNode> {
         let next_nodes = &self.curr.next_nodes;
 
         next_nodes.get(direction).cloned()
     }
 
+    #[inline]
+    pub fn go_mut(&mut self, direction: usize) -> Option<RcNode> {
+        if let Some(node) = self.go(direction) {
+            self.curr = node.clone();
+            Some(node)
+        } else {
+            None
+        }
+    }
+
+    #[inline]
     pub fn next(&self) -> Option<RcNode> {
         let next_nodes = &self.curr.next_nodes;
 
@@ -77,5 +104,20 @@ impl Graph {
         }
 
         next_nodes.get(0).cloned()
+    }
+
+    #[inline]
+    pub fn next_mut(&mut self) -> Option<RcNode> {
+        if let Some(node) = self.next() {
+            self.curr = node.clone();
+            Some(node)
+        } else {
+            None
+        }
+    }
+
+    #[inline]
+    pub fn next_nodes_len(&self) -> usize {
+        self.curr.next_nodes.len()
     }
 }
