@@ -1,5 +1,5 @@
 use core::panic;
-use graph::Graph;
+use graph::{Graph, IndexedNodeList};
 use lazy_static::lazy_static;
 use mlua::prelude::*;
 use std::{
@@ -59,36 +59,73 @@ fn main() -> LuaResult<()> {
     let lua = LUA.lock().unwrap();
     drop(lua);
 
+    let idx_node_list: IndexedNodeList = vec![
+        (0, ">Please input a number 1-3:".into(), vec![1]),
+        (1, "[1;2;3]".into(), vec![2, 3, 4]),
+        (2, ">You selected 1!".into(), vec![]),
+        (3, ">You selected 2!".into(), vec![]),
+        (4, ">You selected 3!".into(), vec![]),
+    ];
+
+    let new_graph = Graph::parse(idx_node_list);
+
+    dbg!(&new_graph);
+
     unsafe {
-        GRAPH = Some(Graph::empty());
+        GRAPH = Some(new_graph);
     }
+
+    process_lines();
     //    process_line(String::from(r"~bar~=balls 123"));
     //    process_line(String::from(r"~name=r/\w+/"));
     //    process_line(String::from(r"~foo=bar"));
-    set_var("balls", "boobs");
-    set_var("guh", "Hello, world!");
-    process_line(String::from(
-        r">This is BRED<ITALIC<just>> a ITALIC<<plain> test",
-    ));
-    process_line(String::from(r">This is just a [{balls};{guh}] test."));
-    process_line(String::from(r">Testing [[ ]] test"));
+    /*
+        set_var("balls", "boobs");
+        set_var("guh", "Hello, world!");
+        process_line(String::from(
+            r">This is BRED<ITALIC<just>> a ITALIC<<plain> test",
+        ));
+        process_line(String::from(r">This is just a [{balls};{guh}] test."));
+        process_line(String::from(r">Testing [[ ]] test"));
+    */
 
     Ok(())
 }
 
-fn process_line(line: String) {
-    if line.is_empty() {
-        panic!("Bad empty input");
+fn process_lines() {
+    if unsafe { &GRAPH }.is_none() {
+        panic!("Graph is not set yet!");
     }
-    match line.chars().next().expect("Input is empty") {
-        '>' => text_line::process(line),
-        '[' => optionals::process(line),
-        '{' => {}
-        '~' => variable_change::process(line),
-        _ => {
-            panic!("Unexpected start of line: '{line}'");
+    loop {
+        let line = unsafe { GRAPH.as_ref().unwrap() }
+            .curr()
+            .unwrap()
+            .contents
+            .clone();
+
+        if line.is_empty() {
+            panic!("Bad empty input");
+        }
+
+        match line.chars().next().expect("Input is empty") {
+            '>' => text_line::process(line),
+            '[' => {
+                optionals::process(line);
+                continue;
+            }
+            '{' => {}
+            '~' => variable_change::process(line),
+            _ => {
+                panic!("Unexpected start of line: '{line}'");
+            }
+        }
+
+        if unsafe { GRAPH.as_mut().unwrap() }.next_mut().is_none() {
+            break;
         }
     }
+
+    println!("Done!");
 }
 
 fn conditional_line(line: String) {}
