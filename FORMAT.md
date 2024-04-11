@@ -9,7 +9,7 @@
 |[Conditionals](#conditional-functions)|^`{foo()}`$|function names|N/a|
 |[Input](#variables)|^`~var_name=r/.{1,3}/`$|RegEx or function/var names|N/a|
 
-*Note: `^` is start of line and `$` is end of l
+*Note: `^` is start of line and `$` is end of line.*
 
 # Text lines
 Text lines print to the screen, in them you can insert [variables](#variables), [styling](#styling), and [random selection](#random-selection).
@@ -35,10 +35,30 @@ To set variables you can use the format of:
 
 For functions, chaining functions is not possible but can effectively be achieved by:
 
-Ex. `~result=baz(foo(bar))` becomes:
+Ex. `~result=baz(foo(bar()))` becomes:
 ```
-~temp=foo(bar)
-~result=baz(temp)
+~temp=bar()
+~temp=foo()
+~result=baz()
+```
+
+Where the lua would look something like: 
+```lua
+local function bar()
+  return "something"
+end
+
+local function foo()
+  local bar = get_var("temp")
+  -- ...
+  return processed_bar
+end
+
+local function baz()
+  local foo = get_var("temp")
+  -- ...
+  return processed_foo
+end
 ```
 
 You may also do a small amount of post process on variables when printing:
@@ -104,13 +124,15 @@ Conditionals are for choosing a node/path based on conditional logic on game/pla
 The conditionals' result should be a positive integer to determine the next node to traverse to (0 indexed).
 The conditional functions are written in lua.
 
+*Note: conditionals are case-insensitive.*
+
 Example:
 ```
 {health_check()}
 ```
 lua:
 ```lua
-function health_check()
+local function health_check()
   local health = tonumber(get_var("health"))
   if health < 50 then
     return 0
