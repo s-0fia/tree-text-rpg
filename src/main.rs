@@ -1,14 +1,12 @@
 use core::panic;
 use graph::{Graph, IndexedNodeList};
 use lazy_static::lazy_static;
-use mlua::prelude::*;
-use std::{
-    cell::UnsafeCell,
-    collections::HashMap,
-    sync::{Mutex, RwLock},
-};
+use mlua::Lua;
+use mlua::Result as LuaResult;
+use std::{collections::HashMap, sync::Mutex};
 
 mod graph;
+mod lua;
 mod optionals;
 mod text_line;
 mod variable_change;
@@ -33,31 +31,11 @@ fn set_var<S: Into<String>, T: Into<String>>(var_name: S, value: T) -> Option<St
         .insert(var_name.into(), value.into())
 }
 
-fn setup_lua_funcs() -> LuaResult<()> {
-    let lua = LUA.lock().unwrap();
-
-    lua.globals().set(
-        "g_var",
-        lua.create_function(|_, var: String| -> LuaResult<String> {
-            Ok(get_var(&var).unwrap_or(String::from("nil")))
-        })?,
-    )?;
-
-    lua.globals().set(
-        "s_var",
-        lua.create_function(|_, (var, val): (String, String)| -> LuaResult<String> {
-            Ok(set_var(var, val).unwrap_or(String::from("nil")))
-        })?,
-    )?;
-
-    Ok(())
-}
-
 fn main() -> LuaResult<()> {
-    setup_lua_funcs()?;
+    lua::setup()?;
 
-    let lua = LUA.lock().unwrap();
-    drop(lua);
+    dbg!(lua::call_func("foo".to_string())?);
+    dbg!(lua::call_func("bar".to_string())?);
 
     let idx_node_list: IndexedNodeList = vec![
         (0, ">Please input a number 1-3:".into(), vec![1]),
@@ -76,18 +54,6 @@ fn main() -> LuaResult<()> {
     }
 
     process_lines();
-    //    process_line(String::from(r"~bar~=balls 123"));
-    //    process_line(String::from(r"~name=r/\w+/"));
-    //    process_line(String::from(r"~foo=bar"));
-    /*
-        set_var("balls", "boobs");
-        set_var("guh", "Hello, world!");
-        process_line(String::from(
-            r">This is BRED<ITALIC<just>> a ITALIC<<plain> test",
-        ));
-        process_line(String::from(r">This is just a [{balls};{guh}] test."));
-        process_line(String::from(r">Testing [[ ]] test"));
-    */
 
     Ok(())
 }

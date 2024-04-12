@@ -10,7 +10,6 @@ pub fn process(line: String) {
 
     let line = line.strip_prefix('[').unwrap().strip_suffix(']').unwrap();
     let options: Vec<&str> = line.split(';').collect();
-    dbg!(&options);
 
     let graph = unsafe { &mut GRAPH }.as_mut().expect("No graph defined!");
 
