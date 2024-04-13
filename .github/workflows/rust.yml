@@ -15,8 +15,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: leafo/gh-actions-lua@v10
     - uses: actions/checkout@v3
+    - name: Install liblua5.4-dev
+      run: apt install liblua5.4-dev
     - name: Build
       run: cargo build --verbose
     - name: Build release
