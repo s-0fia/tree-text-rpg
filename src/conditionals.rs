@@ -8,8 +8,6 @@ pub fn process(line: String) {
 
     let func_name = line.strip_prefix('{').unwrap().strip_suffix("()}").unwrap();
 
-    dbg!(&func_name);
-
     let value: usize = call_lua_func!(func_name).unwrap();
 
     let graph = unsafe { GRAPH.as_mut().unwrap() };
