@@ -17,8 +17,6 @@ pub fn process(line: String) {
 
     let (lhs, rhs) = line.split_once('=').unwrap();
 
-    dbg!(lhs, rhs);
-
     if input.is_match(line) {
         let pat = format!("^{}$", &rhs[2..rhs.len() - 1]);
         let pat = Regex::new(&pat).unwrap_or_else(|_| panic!("Invalid regex pattern: {pat}!"));
