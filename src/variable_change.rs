@@ -1,4 +1,4 @@
-use crate::{get_var, set_var};
+use crate::{call_lua_func, get_var, set_var};
 use core::panic;
 use regex::Regex;
 use std::io;
@@ -32,7 +32,9 @@ pub fn process(line: String) {
             }
         }
     } else if fn_set.is_match(line) {
-        todo!("Implement setting to output of functions")
+        let func_name = rhs.strip_suffix("()").unwrap();
+        let value: String = call_lua_func!(func_name).unwrap();
+        set_var(lhs, value);
     } else if var_val_set.is_match(line) {
         let lhs = lhs.strip_suffix('~').unwrap();
         set_var(lhs, rhs);

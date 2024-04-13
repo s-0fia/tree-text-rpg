@@ -1,7 +1,6 @@
-use std::fs;
-
 use crate::{get_var, set_var, LUA};
 use mlua::prelude::*;
+use std::fs;
 
 #[cfg(not(debug_assertions))]
 include!(concat!(env!("OUT_DIR"), "/lua_embed.rs"));
@@ -51,10 +50,23 @@ pub fn setup() -> LuaResult<()> {
     Ok(())
 }
 
-pub fn call_func(func_name: String) -> LuaResult<String> {
-    let lua = LUA.lock().unwrap();
+#[macro_export]
+macro_rules! call_lua_func {
+    ($ret_type:ident, $func_name:expr) => {{
+        let res: mlua::Result<$ret_type> = call_lua_func!($func_name);
 
-    let func: LuaFunction = lua.globals().get::<_, LuaTable>("func")?.get(func_name)?;
+        res
+    }};
+    ($func_name:expr) => {
+        || -> mlua::Result<_> {
+            let lua = crate::LUA.lock().unwrap();
 
-    func.call::<(), String>(())
+            let func: mlua::Function = lua
+                .globals()
+                .get::<_, mlua::Table>("func")?
+                .get($func_name.to_string())?;
+
+            func.call::<(), _>(())
+        }()
+    };
 }

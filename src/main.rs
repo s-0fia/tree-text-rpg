@@ -34,8 +34,8 @@ fn set_var<S: Into<String>, T: Into<String>>(var_name: S, value: T) -> Option<St
 fn main() -> LuaResult<()> {
     lua::setup()?;
 
-    dbg!(lua::call_func("foo".to_string())?);
-    dbg!(lua::call_func("bar".to_string())?);
+    dbg!(call_lua_func!(String, "foo")?);
+    dbg!(call_lua_func!(String, "bar")?);
 
     let idx_node_list: IndexedNodeList = vec![
         (0, ">Please input a number 1-3:".into(), vec![1]),
@@ -43,6 +43,12 @@ fn main() -> LuaResult<()> {
         (2, ">You selected 1!".into(), vec![]),
         (3, ">You selected 2!".into(), vec![]),
         (4, ">You selected 3!".into(), vec![]),
+    ];
+
+    let idx_node_list: IndexedNodeList = vec![
+        (0, "~one=foo()".into(), vec![1]),
+        (1, "~two=bar()".into(), vec![2]),
+        (2, ">One is: {one}, and two is: {two}".into(), vec![]),
     ];
 
     let new_graph = Graph::parse(idx_node_list);
