@@ -16,8 +16,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - name: Make install lua
-      run: curl -L -R -O https://www.lua.org/ftp/lua-5.4.6.tar.gz && tar zxf lua-5.4.6.tar.gz && cd lua-5.4.6 && make all install
     - name: Build
       run: cargo build --verbose
     - name: Build release
