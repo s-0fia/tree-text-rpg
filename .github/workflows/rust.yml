@@ -16,8 +16,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - name: Install liblua5.4-dev
-      run: apt install liblua5.4-dev
+    - uses: leafo/gh-actions-lua@v10
     - name: Build
       run: cargo build --verbose
     - name: Build release
