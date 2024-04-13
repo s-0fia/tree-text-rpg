@@ -9,7 +9,7 @@ edition = "2021"
 console = "0.15.8"
 include-lua = "0.1.4"
 lazy_static = "1.4.0"
-mlua = { version = "0.9.7", features = ["lua54", "send"] }
+mlua = { version = "0.9.7", features = ["lua54", "send", "vendored"] }
 phf = { version = "0.11.2", features = ["macros"] }
 rand = "0.8.5"
 regex = "1.10.4"
