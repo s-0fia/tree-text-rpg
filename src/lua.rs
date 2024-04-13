@@ -1,5 +1,6 @@
 use crate::{get_var, set_var, LUA};
 use mlua::prelude::*;
+#[cfg(debug_assertions)]
 use std::fs;
 
 #[cfg(not(debug_assertions))]

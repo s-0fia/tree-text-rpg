@@ -17,6 +17,8 @@ pub fn process(line: String) {
 
     let (lhs, rhs) = line.split_once('=').unwrap();
 
+    dbg!(lhs, rhs);
+
     if input.is_match(line) {
         let pat = format!("^{}$", &rhs[2..rhs.len() - 1]);
         let pat = Regex::new(&pat).unwrap_or_else(|_| panic!("Invalid regex pattern: {pat}!"));
@@ -31,18 +33,30 @@ pub fn process(line: String) {
                 break;
             }
         }
+
+        return;
     } else if fn_set.is_match(line) {
         let func_name = rhs.strip_suffix("()").unwrap();
         let value: String = call_lua_func!(func_name).unwrap();
+
         set_var(lhs, value);
+
+        return;
     } else if var_val_set.is_match(line) {
         let lhs = lhs.strip_suffix('~').unwrap();
+
         set_var(lhs, rhs);
+
+        return;
     } else if var_var_set.is_match(line) {
         if let Some(value) = get_var(rhs) {
             set_var(lhs, value);
         } else {
             panic!("Variable {rhs} is not yet set!");
         }
+
+        return;
     }
+
+    panic!("Invalid var line input!");
 }

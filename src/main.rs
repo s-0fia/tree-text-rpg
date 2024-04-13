@@ -5,6 +5,7 @@ use mlua::Lua;
 use mlua::Result as LuaResult;
 use std::{collections::HashMap, sync::Mutex};
 
+mod conditionals;
 mod graph;
 mod lua;
 mod optionals;
@@ -51,6 +52,13 @@ fn main() -> LuaResult<()> {
         (2, ">One is: {one}, and two is: {two}".into(), vec![]),
     ];
 
+    let idx_node_list: IndexedNodeList = vec![
+        (0, "~health~=40".into(), vec![1]),
+        (1, "{health_check()}".into(), vec![2, 3]),
+        (2, ">Your health is less than 50 :(".into(), vec![]),
+        (3, ">Your health is greater than 50 :)".into(), vec![]),
+    ];
+
     let new_graph = Graph::parse(idx_node_list);
 
     dbg!(&new_graph);
@@ -85,7 +93,10 @@ fn process_lines() {
                 optionals::process(line);
                 continue;
             }
-            '{' => {}
+            '{' => {
+                conditionals::process(line);
+                continue;
+            }
             '~' => variable_change::process(line),
             _ => {
                 panic!("Unexpected start of line: '{line}'");
@@ -99,5 +110,3 @@ fn process_lines() {
 
     println!("Done!");
 }
-
-fn conditional_line(line: String) {}
