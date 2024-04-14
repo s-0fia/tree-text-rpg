@@ -1,9 +1,13 @@
+use anyhow::Error;
+use anyhow::Result;
 use core::panic;
 use graph::{Graph, IndexedNodeList};
 use lazy_static::lazy_static;
 use mlua::Lua;
-use mlua::Result as LuaResult;
+use std::fs;
 use std::{collections::HashMap, sync::Mutex};
+
+use crate::graph::FileVars;
 
 mod conditionals;
 mod graph;
@@ -32,34 +36,15 @@ fn set_var<S: Into<String>, T: Into<String>>(var_name: S, value: T) -> Option<St
         .insert(var_name.into(), value.into())
 }
 
-fn main() -> LuaResult<()> {
+fn main() -> Result<()> {
     lua::setup()?;
+
+    let file_contents = fs::read_to_string("./main.story")?;
+    let (vars, lines) = FileVars::extract_from(file_contents)?;
+    let new_graph = Graph::parse_string(lines)?;
 
     dbg!(call_lua_func!(String, "foo")?);
     dbg!(call_lua_func!(String, "bar")?);
-
-    let idx_node_list: IndexedNodeList = vec![
-        (0, ">Please input a number 1-3:".into(), vec![1]),
-        (1, "[1;2;3]".into(), vec![2, 3, 4]),
-        (2, ">You selected 1!".into(), vec![]),
-        (3, ">You selected 2!".into(), vec![]),
-        (4, ">You selected 3!".into(), vec![]),
-    ];
-
-    let idx_node_list: IndexedNodeList = vec![
-        (0, "~one=foo()".into(), vec![1]),
-        (1, "~two=bar()".into(), vec![2]),
-        (2, ">One is: {one}, and two is: {two}".into(), vec![]),
-    ];
-
-    let idx_node_list: IndexedNodeList = vec![
-        (0, "~health~=40".into(), vec![1]),
-        (1, "{health_check()}".into(), vec![2, 3]),
-        (2, ">Your health is less than 50 :(".into(), vec![]),
-        (3, ">Your health is greater than 50 :)".into(), vec![]),
-    ];
-
-    let new_graph = Graph::parse(idx_node_list);
 
     dbg!(&new_graph);
 
@@ -67,15 +52,16 @@ fn main() -> LuaResult<()> {
         GRAPH = Some(new_graph);
     }
 
-    process_lines();
+    process_lines().unwrap();
 
     Ok(())
 }
 
-fn process_lines() {
+fn process_lines() -> Result<()> {
     if unsafe { &GRAPH }.is_none() {
-        panic!("Graph is not set yet!");
+        return Err(Error::msg("Graph is not set yet!"));
     }
+
     loop {
         let line = unsafe { GRAPH.as_ref().unwrap() }
             .curr()
@@ -84,29 +70,31 @@ fn process_lines() {
             .clone();
 
         if line.is_empty() {
-            panic!("Bad empty input");
+            return Err(Error::msg("Bad empty input"));
         }
+
+        let mut idx = 0;
 
         match line.chars().next().expect("Input is empty") {
-            '>' => text_line::process(line),
+            '>' => text_line::process(line)?,
             '[' => {
-                optionals::process(line);
-                continue;
+                idx = optionals::process(line)?;
             }
             '{' => {
-                conditionals::process(line);
-                continue;
+                idx = conditionals::process(line)?;
             }
-            '~' => variable_change::process(line),
+            '~' => variable_change::process(line)?,
             _ => {
-                panic!("Unexpected start of line: '{line}'");
+                return Err(Error::msg("Unexpected start of line"));
             }
         }
 
-        if unsafe { GRAPH.as_mut().unwrap() }.next_mut().is_none() {
+        if unsafe { GRAPH.as_mut().unwrap() }.go_mut(idx).is_none() {
             break;
         }
     }
 
     println!("Done!");
+
+    Ok(())
 }

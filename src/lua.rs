@@ -1,4 +1,5 @@
 use crate::{get_var, set_var, LUA};
+use anyhow::{Context, Result};
 use mlua::prelude::*;
 #[cfg(debug_assertions)]
 use std::fs;
@@ -16,8 +17,8 @@ where
         .eval()
 }
 
-pub fn setup() -> LuaResult<()> {
-    let lua = LUA.lock().unwrap();
+pub fn setup() -> Result<()> {
+    let lua = LUA.lock().ok().context("Failed to get mutex lock.")?;
 
     lua.globals().set(
         "g_var",
@@ -34,7 +35,7 @@ pub fn setup() -> LuaResult<()> {
     )?;
 
     #[cfg(debug_assertions)]
-    let contents = fs::read_to_string("lua/main.lua").expect("No ./lua/main.lua found");
+    let contents = fs::read_to_string("lua/main.lua")?;
 
     #[cfg(debug_assertions)]
     let globals: LuaTable = lua.load(contents).eval()?;
@@ -44,7 +45,14 @@ pub fn setup() -> LuaResult<()> {
         .set("require", lua.create_function(load_mod)?)?;
 
     #[cfg(not(debug_assertions))]
-    let globals: LuaTable = lua.load(LUA_EMBED.get("main").unwrap().clone()).eval()?;
+    let globals: LuaTable = lua
+        .load(
+            LUA_EMBED
+                .get("main")
+                .context("No main file found.")?
+                .clone(),
+        )
+        .eval()?;
 
     lua.globals().set("func", globals)?;
 
@@ -58,16 +66,19 @@ macro_rules! call_lua_func {
 
         res
     }};
-    ($func_name:expr) => {
-        || -> mlua::Result<_> {
-            let lua = crate::LUA.lock().unwrap();
+    ($func_name:expr) => {{
+        use anyhow::Context;
 
-            let func: mlua::Function = lua
-                .globals()
-                .get::<_, mlua::Table>("func")?
-                .get($func_name.to_string())?;
+        let lua = crate::LUA
+            .lock()
+            .ok()
+            .context("Failed to get mutex lock.")?;
 
-            func.call::<(), _>(())
-        }()
-    };
+        let func: mlua::Function = lua
+            .globals()
+            .get::<_, mlua::Table>("func")?
+            .get($func_name.to_string())?;
+
+        func.call::<(), _>(())
+    }};
 }

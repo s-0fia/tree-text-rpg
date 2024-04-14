@@ -1,4 +1,5 @@
 use crate::get_var;
+use anyhow::{Context, Error, Result};
 use console::Style;
 use core::panic;
 use rand::seq::SliceRandom;
@@ -6,8 +7,8 @@ use rand::seq::SliceRandom;
 fn simple_open_close_line(
     line: String,
     (start, end): (char, char),
-    success: fn(String) -> String,
-) -> String {
+    success: fn(String) -> Result<String>,
+) -> Result<String> {
     let mut escaped_char = false;
     let mut in_block_seq = false;
     let mut output = String::new();
@@ -32,7 +33,7 @@ fn simple_open_close_line(
             escaped_char = line.chars().nth(i + 1) == Some(end);
 
             if !escaped_char && in_block_seq {
-                output += &success(temp_buf);
+                output += &success(temp_buf)?;
                 temp_buf = String::new();
 
                 in_block_seq = false;
@@ -50,47 +51,51 @@ fn simple_open_close_line(
         }
     }
 
-    return output;
+    return Ok(output);
 }
 
-pub fn process(line: String) {
-    let line = line.strip_prefix('>').unwrap().to_string();
+pub fn process(line: String) -> Result<()> {
+    let line = line
+        .strip_prefix('>')
+        .context("Failed to remove > prefix from text line.")?
+        .to_string();
+
     let rand_line_fn = |temp_buf: String| {
         let options: Vec<&str> = temp_buf.split(';').collect();
 
         if options.is_empty() {
-            panic!("Invalid random selector, no elements");
+            return Err(Error::msg("Invalid random selector, no elements."));
         }
 
         let mut rng = rand::thread_rng();
 
-        options.choose(&mut rng).unwrap().to_string()
+        Ok(options.choose(&mut rng).unwrap().to_string())
     };
 
     let var_line_fn = |temp_buf: String| {
         let fields: Vec<&str> = temp_buf.split(';').collect();
 
         match fields.len() {
-            1 => get_var(fields[0]).unwrap(),
+            1 => get_var(fields[0]).context("Failed to get variable value"),
             2 => {
-                let value = get_var(fields[1]).unwrap();
+                let value = get_var(fields[1]).context("Failed to get variable value")?;
 
                 let processed = match fields[0] {
                     "U" => value.to_uppercase(),
                     "l" => value.to_lowercase(),
                     "F" => format!("{}{}", &value[0..1].to_uppercase(), &value[1..]),
                     "f" => format!("{}{}", &value[0..1].to_lowercase(), &value[1..]),
-                    f => panic!("Unrecognised post process {f}"),
+                    f => Err(Error::msg(format!("Unrecognised post process {f}")))?,
                 };
 
-                processed
+                Ok(processed)
             }
-            _ => panic!("Too many/little fields given in variable"),
+            _ => Err(Error::msg("Too many/no fields given in variable")),
         }
     };
 
-    let output = simple_open_close_line(line, ('[', ']'), rand_line_fn);
-    let mut output = simple_open_close_line(output, ('{', '}'), var_line_fn);
+    let output = simple_open_close_line(line, ('[', ']'), rand_line_fn)?;
+    let mut output = simple_open_close_line(output, ('{', '}'), var_line_fn)?;
 
     const STYLES: [&'static str; 17] = [
         "BOLD",
@@ -154,7 +159,7 @@ pub fn process(line: String) {
 
             let mut close_idx = output[idx..]
                 .find('>')
-                .expect("No valid closing tag for style.")
+                .context("No valid closing tag for style.")?
                 + idx;
 
             while out_chars.nth(close_idx + 1) == Some('>') {
@@ -185,7 +190,7 @@ pub fn process(line: String) {
                 "MAGENTA" => apply_style_func(fg_or_bg_colours[5]),
                 "YELLOW" => apply_style_func(fg_or_bg_colours[6]),
                 "WHITE" => apply_style_func(fg_or_bg_colours[7]),
-                _ => panic!(),
+                _ => Err(Error::msg("Invalid style."))?,
             };
 
             new_out += &output[close_idx + 1..];
@@ -194,5 +199,8 @@ pub fn process(line: String) {
             next = output.find(&format!("{style}<"));
         }
     }
+
     println!("{}", output);
+
+    Ok(())
 }

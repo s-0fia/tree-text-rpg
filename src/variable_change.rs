@@ -1,29 +1,35 @@
 use crate::{call_lua_func, get_var, set_var};
-use core::panic;
+use anyhow::{Context, Error, Result};
 use regex::Regex;
 use std::io;
 
-pub fn process(line: String) {
+pub fn process(line: String) -> Result<()> {
     if !line.contains('=') {
-        panic!("Invalid variable assignment");
+        return Err(Error::msg("Invalid variable assignment, no equals sign."));
     }
 
-    let line = line.strip_prefix('~').unwrap();
+    let line = line
+        .strip_prefix('~')
+        .context("Invalid variable change line, no tilde prefix.")?;
 
-    let input = Regex::new(r"^[a-z_]+=r\/.+\/$").unwrap();
-    let var_val_set = Regex::new(r"^[a-z_]+~=.+$").unwrap();
-    let var_var_set = Regex::new(r"^[a-z_]+=[a-z_]+$").unwrap();
-    let fn_set = Regex::new(r"^[a-z_]+=[a-z_]+\([a-z_]*\)$").unwrap();
+    let input = Regex::new(r"^[a-z_]+=r\/.+\/$")?;
+    let var_val_set = Regex::new(r"^[a-z_]+~=.+$")?;
+    let var_var_set = Regex::new(r"^[a-z_]+=[a-z_]+$")?;
+    let fn_set = Regex::new(r"^[a-z_]+=[a-z_]+\([a-z_]*\)$")?;
 
-    let (lhs, rhs) = line.split_once('=').unwrap();
+    let (lhs, rhs) = line
+        .split_once('=')
+        .context("Invalid variable assignment, no equals sign.")?;
 
     if input.is_match(line) {
         let pat = format!("^{}$", &rhs[2..rhs.len() - 1]);
-        let pat = Regex::new(&pat).unwrap_or_else(|_| panic!("Invalid regex pattern: {pat}!"));
+        let pat = Regex::new(&pat)?;
+
+        dbg!(&pat);
 
         loop {
             let mut input = String::new();
-            io::stdin().read_line(&mut input).unwrap();
+            io::stdin().read_line(&mut input)?;
             let input = input.trim();
 
             if pat.is_match(input) {
@@ -32,29 +38,33 @@ pub fn process(line: String) {
             }
         }
 
-        return;
+        return Ok(());
     } else if fn_set.is_match(line) {
-        let func_name = rhs.strip_suffix("()").unwrap();
-        let value: String = call_lua_func!(func_name).unwrap();
+        let func_name = rhs.strip_suffix("()").context(
+            "Invalid function in variable assignemnt, brackets do not suffix the function name",
+        )?;
+        let value: String = call_lua_func!(func_name)?;
 
         set_var(lhs, value);
 
-        return;
+        return Ok(());
     } else if var_val_set.is_match(line) {
-        let lhs = lhs.strip_suffix('~').unwrap();
+        let lhs = lhs
+            .strip_suffix('~')
+            .context("Invalid variable to value assignenment, no ~= found.")?;
 
         set_var(lhs, rhs);
 
-        return;
+        return Ok(());
     } else if var_var_set.is_match(line) {
         if let Some(value) = get_var(rhs) {
             set_var(lhs, value);
         } else {
-            panic!("Variable {rhs} is not yet set!");
+            return Err(Error::msg(format!("Variable {rhs} is not yet set!")));
         }
 
-        return;
+        return Ok(());
     }
 
-    panic!("Invalid var line input!");
+    Err(Error::msg("Invalid var line input!"))
 }

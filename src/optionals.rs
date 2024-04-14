@@ -1,30 +1,35 @@
-use core::panic;
-use std::io;
+use anyhow::{Context, Error, Result};
+use std::{cmp::Ordering, io};
 
 use crate::GRAPH;
 
-pub fn process(line: String) {
-    if line.chars().nth(0) != Some('[') || line.chars().last() != Some(']') {
-        panic!("Invalid optional line!");
-    }
+pub fn process(line: String) -> Result<usize> {
+    let line = line
+        .strip_prefix('[')
+        .context("No [ prefix on optional line!")?
+        .strip_suffix(']')
+        .context("No ] suffix on optional line")?;
 
-    let line = line.strip_prefix('[').unwrap().strip_suffix(']').unwrap();
     let options: Vec<&str> = line.split(';').collect();
 
-    let graph = unsafe { &mut GRAPH }.as_mut().expect("No graph defined!");
+    let graph = unsafe { &mut GRAPH }
+        .as_mut()
+        .context("No graph defined!")?;
 
-    if graph.next_nodes_len().unwrap() > options.len() {
-        panic!("Too few options given in optional '{line}'");
-    } else if graph.next_nodes_len().unwrap() < options.len() {
-        panic!("Too many options given in option '{line}'");
-    }
+    let _ = match graph
+        .next_nodes_len()
+        .context("Failed to read next nodes length.")?
+        .cmp(&options.len())
+    {
+        Ordering::Less => Err(Error::msg("Too few options given in optional")),
+        Ordering::Greater => Err(Error::msg("Too many options given in optional")),
+        _ => Ok(()),
+    }?;
 
     let choice_idx = loop {
         let mut buf = String::new();
 
-        io::stdin()
-            .read_line(&mut buf)
-            .expect("Failed to read line...");
+        io::stdin().read_line(&mut buf)?;
 
         let input = buf.trim();
 
@@ -33,7 +38,5 @@ pub fn process(line: String) {
         }
     };
 
-    if graph.go_mut(choice_idx).is_none() {
-        panic!("No node at index {choice_idx}");
-    }
+    Ok(choice_idx)
 }
